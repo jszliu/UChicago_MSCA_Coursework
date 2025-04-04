@@ -1,1 +1,46 @@
+📘 MSCA31010 - Linear & Non-Linear Models (Winter 2022)
+This repository contains my coursework for MSCA31010, covering various modeling and machine learning techniques applied to real-world datasets. Below is a summary of each assignment:
+
+📂 Assignment 1 – Exploratory Data Analysis & Logistic Regression
+File: MSCA31010_Assignment 1(1).ipynb
+
+Conducted exploratory data analysis (EDA) on a binary classification dataset.
+
+Performed feature engineering and preprocessing.
+
+Built a logistic regression model and evaluated it using accuracy and confusion matrix.
+
+Introduced basic model interpretation techniques.
+
+📂 Assignment 2 – Penalized Logistic Regression
+File: MSCA31010_HW2_Zihao_Liu.ipynb
+
+Applied Ridge and Lasso penalized logistic regression using cross-validation.
+
+Compared model performance and feature selection behavior under both penalties.
+
+Interpreted coefficient shrinkage and model sparsity.
+
+Visualized regularization paths.
+
+📂 Assignment 3 – Categorical Predictors & Forward Selection
+File: MSCA31010_Assignment_3_Zihao_Liu.pdf
+
+Visualized categorical and continuous predictors in relation to customer churn.
+
+Used Forward Selection to build a logistic model with statistical reporting (Deviance Chi-square, LL, etc.).
+
+Evaluated model using multiple R-squared metrics, AUC, and error metrics.
+
+Chose optimal threshold based on F1 Score to minimize misclassification.
+
+📂 Assignment 4 – Tree-based Models
+File: MSCA31010_Assignment4_Code.py
+
+Implemented and tuned Decision Tree, Random Forest, and Gradient Boosting models.
+
+Compared model performance with logistic regression baseline.
+
+Included code for plotting feature importance and model diagnostics.
+
 
