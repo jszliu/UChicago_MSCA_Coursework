@@ -1,0 +1,314 @@
+---
+title: "TS_Assignment4_Zihao_Liu"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+date: '2022-04-22'
+---
+
+```{r,echo=FALSE,warning=FALSE,include=FALSE}
+library(fpp3)
+library(tseries)
+library(ggplot2)
+library(forecast)
+library(dplyr)
+library(TSA)
+library(Metrics)
+library(zoo)
+library(readxl)
+```
+
+
+
+Question 1:
+Combine the data from the 16 files into a single dataset and plot it.
+
+```{r}
+Traffic_raw <- data.frame()
+for (i in 16:30){
+Traffic_raw= rbind(Traffic_raw, read_excel(paste0('I-57-2013-June-',i,'.xls'), skip = 3, range = cell_cols("C:E"))[3:26,c(1,3)])
+}
+
+Traffic_raw = rbind(Traffic_raw, read_excel('I-57-2013-July-1.xls', skip = 3, range = cell_cols("C:E"))[3:26,c(1,3)])
+
+Traffic_raw$I80E = as.numeric(Traffic_raw$I80E)
+
+head(Traffic_raw)
+```
+
+```{r}
+#set time timeseries
+traffic_ts_raw=select(Traffic_raw,I80E)
+traffic_by_hour <- ts(traffic_ts_raw, start = 1, frequency = 1)
+```
+
+```{r}
+autoplot(traffic_by_hour)
+```
+
+```{r}
+#plot time series
+tsdisplay(traffic_by_hour,main='Hourly_Traffic')
+```
+
+From TS plot,it has cyclical patterns. The acf has sinusodal wave. The lags are out of confidence internval in ACF plot,so this timeseries is not white noise.The ACF slowly decays, so future values of the series are correlated by past values. There also could be autocorrelation since in PACF,there is a sharp drop from lag 1 to lag 2.
+
+Question 2:
+Split the dataset into a training dataset which includes 6/16/2013 - 6/30/2013 samples and a
+test dataset which includes 7/1/2013 samples and plot the ACF and PACF.
+
+```{r}
+#Split the dataset
+train <- window(traffic_by_hour, start=1, end=360)
+test <- window(traffic_by_hour, start=361, end=384)
+```
+
+```{r}
+tsdisplay(train,main='Hourly_Traffic_Trainset')
+```
+```{r,warning=FALSE}
+kpss.test(train)
+```
+
+From TS plot,it has cyclical patterns. The acf has sinusodal wave. There seems to be seasonality in lag12 and lag24. The lags are out of confidence internval in ACF plot,so this timeseries is not stationary.The ACF slowly decays, so future values of the series are correlated by past values. There also could be autocorrelation since in PACF,there is a sharp drop from lag 1 to lag 2. lag1 could be cut of point. The p-value of kpss test is 0.1>0.05,so the process is stationary.
+
+
+Question 3:
+Build an 𝐴𝑅𝐼𝑀𝐴(𝑝, 𝑑, 𝑞) model using the training dataset and R auto.arima() function. Change
+the values of 𝑝 and 𝑞 and determine the best model using AICc and BIC values. Do AICc and BIC
+select the same model as the best model? For each derived model, review the residual plots for
+the residuals ACF and normality.
+
+```{r}
+fit1 <- auto.arima(train,seasonal=FALSE)
+summary(fit1)
+```
+The model from auto.arima is ARIMA(2,0,3) with non-zero mean.(p=2,d=0,q=3) The AIC is 4463.85. The BIC is 4491.05
+
+```{r}
+eacf(train)
+```
+
+
+```{r,warning=FALSE}
+kpss.test(train)
+```
+p-value is greather than 0. So the data is stationary
+
+```{r}
+#select the model from AIC
+model_summary <- data.frame()
+for(p in 0:3){
+  for(q in 0:3){
+    for (d in 0) {
+      fit <- Arima(train, order=c(p,d,q))
+      
+     # gather everything into a single data frame 
+      AIC <- data.frame(AIC = AIC(fit), 
+                            p,
+                            d,
+                            q)
+      
+      # add arima summary
+      model_summary  <- rbind(model_summary, AIC)
+   
+    }
+  }
+  
+}
+model_summary %>% arrange(AIC) %>% head(10)
+```
+
+The model with smallest AIC is ARIMA(2,0,3) with AIC=4455.562
+
+```{r}
+#select the model from BIC 
+
+model_summary <- data.frame()
+for(p in 0:3){
+  for(q in 0:3){
+    for (d in 0) {
+      fit <- Arima(train, order=c(p,d,q))
+      
+     # gather everything into a single data frame 
+      BIC <- data.frame(BIC = BIC(fit), 
+                            p,
+                            d,
+                            q)
+      
+      # add arima summary
+      model_summary  <- rbind(model_summary, BIC)
+   
+    }
+  }
+  
+}
+model_summary %>% arrange(BIC) %>% head(10)
+```
+
+The model with smallest BIC is ARIMA(2,0,2) with BIC=4479.834	
+
+Auto.Arima() and AIC have same model, which is Arima(2,0,3).The AICc and BIC select different model as the best model since BIC penalizes models with more parameters.
+
+```{r}
+#auto arima model
+checkresiduals(fit1)
+```
+
+For Arima(2,0,3),The Ljung-Box test p-value is less than 0.05 we reject the hypothesis. Residuals are not independently distributed. There seems to have autocorrelation on ACF plot around lag 24 from ACF.
+
+
+```{r}
+# AIC best model
+fit2 <- Arima(train,c(2,0,3),seasonal=FALSE)
+summary(fit2)
+```
+```{r}
+checkresiduals(fit2)
+```
+
+For Arima(2,0,3),The Ljung-Box test p-value is less than 0.05 we reject the hypothesis. Residuals are not independently distributed.  There seems to be autocorrelation at lag24
+
+
+```{r}
+#BIC best model
+fit3 <- Arima(train,c(2,0,2))
+summary(fit3)
+```
+
+```{r}
+checkresiduals(fit3)
+```
+For Arima(2,0,2),the Ljung-Box test p-value is less than 0.05 we reject the hypothesis. Residuals are not independently distributed. There seems to have autocorrelation at lag 24 from ACF
+
+Question 4:
+Build a day of the week seasonal 𝐴𝑅𝐼𝑀𝐴(𝑝, 𝑑, 𝑞)(𝑃,𝑄,𝐷)𝑠 model using the training dataset
+and R auto.arima() function.
+
+```{r}
+traffic_by_week <- ts(train, frequency = 168)
+```
+
+```{r}
+tsdisplay(traffic_by_week, main="Train data by week")
+```
+
+From timeseries plot and ACF plot,it has cyclical patterns.There seems to be no trend. The acf has sinusodal wave.It maybe seasonal.There also could be autocorrelation since in PACF,there is a sharp drop from lag 1 to lag 2.
+
+
+```{r}
+eacf(traffic_by_week)
+```
+
+
+```{r}
+fit_weekly<- auto.arima(traffic_by_week, seasonal = TRUE, max.p = 3, max.q = 4, trace = TRUE)
+```
+```{r}
+summary(fit_weekly)
+```
+
+
+
+The week seasonal model is :ARIMA(0,1,2)(0,1,0)[168].It has AIC 2249.31.It has BIC 2259.07 This model has non-seasonal d=1,q=2, and 1 seasonal degee of differece.
+
+Question 5:
+Use the 𝐴𝑅𝐼𝑀𝐴(𝑝, 𝑑, 𝑞)(𝑃, 𝑄, 𝐷)𝑠 model from Question 4 to forecast for July 1st (which is a
+Monday). Plot your result.
+
+```{r}
+week_forecast <-forecast(fit_weekly, h=24, level=c(80, 95))
+```
+
+
+```{r}
+autoplot(week_forecast)
+```
+
+Question 6:
+Build a hour of the day seasonal 𝐴𝑅𝐼𝑀𝐴(𝑝, 𝑑, 𝑞)(𝑃,𝑄,𝐷)𝑠model using the training dataset and
+R auto.arima() function.
+
+```{r}
+traffic_hour <- ts(train, frequency = 24)
+```
+
+```{r}
+tsdisplay(traffic_hour)
+```
+
+There is a significant drop from lag1 in PACF. The lags have seasonal patterns in ACF. The time series plot moves cyclical.
+
+```{r}
+fit_hour<- auto.arima(traffic_hour, seasonal = TRUE,trace = TRUE)
+
+```
+
+```{r}
+summary(fit_hour)
+```
+
+Our day seasonal model is ARIMA(2,0,2)(2,1,0)[24]. It has non non-seasonal p=2,q=2.It has seasonal p=2,d=1.(P is order of the autoregressive part and Q is moving average part)
+
+Question 7:
+Use the 𝐴𝑅𝐼𝑀𝐴(𝑝, 𝑑, 𝑞)(𝑃, 𝑄, 𝐷)𝑠 model from Question 6 to forecast for July 1st (which is aMonday). Plot your result.
+
+```{r}
+hour_forecast <- forecast(fit_hour,h=24)
+```
+
+
+```{r}
+autoplot(hour_forecast)
+```
+
+Question 8:
+Compare the forecast of the models from Questions 5 and 7 for July 1 8:00, 9:00, 17:00 and
+18:00, which model is better (Questions 4 or 6)?
+
+
+```{r}
+rush_hour <- c(traffic_by_hour[368,1][[1]], traffic_by_hour[369,1][[1]], traffic_by_hour[377,1][[1]], traffic_by_hour[378,1][[1]])
+#prediction from week model
+weekly_forecast = c(week_forecast$mean[8], week_forecast$mean[9], week_forecast$mean[17], week_forecast$mean[18])
+
+#prediction from hour model
+daily_forcast = c(hour_forecast$mean[8], hour_forecast$mean[9], hour_forecast$mean[17], hour_forecast$mean[18])
+```
+
+
+```{r}
+#compare prediction value
+results <- rbind(rush_hour,weekly_forecast,daily_forcast)
+results %>% data.frame()
+```
+
+```{r}
+error_week=rush_hour-weekly_forecast
+plot(error_week)
+```
+
+```{r}
+error_hour=rush_hour-daily_forcast
+plot(error_hour)
+```
+```{r}
+SSE_week <- sum(error_week^2)
+SSE_hour <- sum(error_hour^2)
+rbind(SSE_week,SSE_hour)
+```
+
+The SSE for week is 4604.173. The SSE for daily is 265420.805. SSE for week is smaller than SSE for daily
+
+```{r}
+rmse(rush_hour, weekly_forecast)
+```
+
+```{r}
+rmse(rush_hour,daily_forcast)
+```
+
+The rmse for week model is 33.92703 which is far less than the day model's rmse 257.595. 
+
+In conclusion,the model from question 4 is better than question 6.

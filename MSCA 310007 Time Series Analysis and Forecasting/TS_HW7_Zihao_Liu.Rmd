@@ -1,0 +1,249 @@
+---
+title: "TS_HW7_Zihao_Liu"
+output:
+  word_document: default
+  pdf_document: default
+date: '2022-05-07'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r,include=FALSE}
+library(tseries)
+library(vars)
+library(fpp)
+library(dplyr)
+library(ggplot2)
+library(dplyr)
+```
+
+
+Question 1:
+Load the data and calculate the average cost of a night’s accommodation in Victoria each month (i.e.,
+Cost variable).
+
+
+```{r}
+load("~/Downloads/motel.rda")
+head(motel)
+```
+
+
+a) Plot the CPI and Cost time series.
+```{r}
+#Plot the CPI 
+CPI<-motel[,"CPI"]
+autoplot(CPI)
+``` 
+
+```{r}
+#Plot the Cost
+cost <- motel[,"Takings"]*1000/motel[,"Roomnights"]
+autoplot(cost)
+```
+
+
+```{r}
+tsdisplay(cost)
+```
+
+There is a upward trend of cost. There maybe cylclical pattern. The ACF are slowy decaying so  so future values of the series are correlated by past values. And there is a sharp drop from lag 1 on PACF.
+
+
+```{r}
+tsdisplay(CPI)
+```
+There is a upward trend of CPI.The ACF are slowy decaying so  so future values of the series are correlated by past values.  and there is a sharp drop from lag 1 on PACF.
+
+
+b) Plot the Cost time series against the CPI time series and calculate the correlation between CPI
+and Cost.
+Discuss your results and explain why the logarithms of both variables need to be taken before fitting any
+models.
+
+```{r}
+#Plot the Cost time series against the CPI time series
+plot(CPI,cost)
+```
+
+```{r}
+#calculate the correlation between CPI and Cost
+cor(CPI,cost)
+```
+
+The correlation between cost and cpi is 0.9907186, They have strong and postive correlation.
+
+"Changes in a log value are relative (or percentage) changes on the original scale."(fpp3) A log transform will changes the data from a unit change to percent change,which has interpretbility compared with other lambda,so the data would be more normally distributed. Log transformation belongs to Box-cox transformation. It can stabilize the changing variance.
+Lo
+c) Plot the 𝑙𝑜𝑔(𝐶𝑃𝐼) and 𝑙𝑜𝑔(𝐶𝑜𝑠𝑡) time series and calculate the correlation between the logarithms of both CPI and Cost
+
+```{r,warning=FALSE,echo=FALSE}
+#Plot the 𝑙𝑜𝑔(𝐶𝑃𝐼)
+plot(log(CPI))
+```
+
+
+```{r}
+# plot 𝑙𝑜𝑔(𝐶𝑜𝑠𝑡) time series
+plot(log(cost))
+```
+
+```{r}
+#calculate the correlation between the logarithms of both CPI and Cost
+cor(log(CPI), log(cost))
+```
+
+THe correlation between log CPI and log Cost is 0.9929902.
+
+Question 2:
+a) Use the linear model with time series components function tslm() to fit a linear model to the
+𝑙𝑜𝑔(𝐶𝑜𝑠𝑡) time series as a function of the 𝑙𝑜𝑔(𝐶𝑃𝐼) time series (i.e., CPI ➔ Independent
+variable, Cost➔ Dependent variable).
+
+```{r}
+model1 <- tslm(log(cost)~log(CPI))
+```
+
+```{r}
+summary(model1)
+```
+
+b) Plot 𝑙𝑜𝑔(𝐶𝑃𝐼) against 𝑙𝑜𝑔(𝐶𝑜𝑠𝑡) and the fitted trend.
+
+```{r}
+autoplot(log(CPI), series = 'log(CPI)') + autolayer(log(cost), series = 'log(cost)') + autolayer(model1$fitted.values, series = 'fitted trend')
+```
+
+```{r}
+plot(log(cost)~log(CPI), xlab = 'log Cost', ylab = 'log CPI',main = "linear model") + abline(model1, col = "Red")
+```
+
+
+
+c) Use the summary() function to summarize the generated model , and the checkresiduals()
+function to evaluate the residuals.
+Discuss your results.
+
+```{r}
+summary(model1)
+```
+
+```{r}
+checkresiduals(model1)
+```
+
+
+
+The model has an intercept -1.68246 and one regression coefficient 1.30339. The R^2 is 0.986, which means the model can explain 98.6% variance of the data.
+
+From the ACF plot, we can see that the lags are not decaying fast. The residuals seem to be normally distributed.From Breusch-Godfrey test, the p-value is close to zero so we should reject the null hypothesis. The lags are out of boundries. There is serial correlation.
+
+
+
+
+
+
+ Question 3:
+Use the auto.arima() function to fit an appropriate regression model with ARIMA errors to the Cost and
+CPI time series(i.e., CPI ➔ Independent variable, Cost➔ Dependent variable). Set the Order of seasonal differencing argument, D, to 1 and the ‘lambda’ argument to 0 to reflect a logarithmic transformation.
+
+```{r,warning=FALSE}
+kpss.test(cost)
+```
+
+The p-value is 0.01<0.05,so the process is not stationary.
+
+```{r,warning=FALSE}
+kpss.test(diff(cost))
+```
+The p-value of kpss test of first difference is 0.1>0.05,so the process is stationary. 
+
+So we should set D=1
+
+
+```{r}
+model2<-auto.arima(cost, xreg = CPI, lambda = 0, D=1,trace = TRUE)
+```
+
+a) Use the summary() function to summarize the generated model.
+
+```{r}
+summary(model2)
+```
+
+
+b) Use the checkresiduals() function to evaluate the residuals.
+
+```{r}
+checkresiduals(model2)
+```
+
+Discuss your results.
+
+Model2: Regression with ARIMA(0,1,1)(0,1,2)[12] errors. Its AIC is -864.14, its AICc is-863.79 ,and Its BIC is -848.38.
+The model error has nonseasonal  p=0,d=1,q=1, and seasonal P=0,D=1,Q=2. p is order of the autoregressive part,d is degree of differencing involved, q is order of the moving average part. Its ma1 is  -0.5516  with standard error 0.0602,sma1 is -0.6160 with se 0.0785,sma2 is 0.1374  with se 0.1009. The xreg(regression coefficient) is 0.0099 with se 0.0025.
+
+The p-value of Box-Ljung test is  0.3223> 0.05. We fail to reject null hypothesis. Residuals are independently distributed.The model captures the pattern in data. The ACF of residuals are mostly within the bound.Therefore, the residuals of arima errors are white noise.
+
+ 
+ 
+Question 4:
+ 
+
+a) Calculate and plot a naïve forecast of CPI for the next 18 months.
+
+```{r}
+model3 <- naive(CPI, 18, level = c(80,95))
+autoplot(CPI) + autolayer(model3, series="naïve")
+```
+
+
+b) Forecast and plot the average price per room (i.e., Cost) for the next 18 months using the fitted
+model from Question 3 and the naïve forecast of CPI.
+
+```{r}
+forecast2 <- forecast(model2, h=18, xreg=model3$mean)
+plot(forecast2)
+```
+Discuss your results.
+
+Forecasts produced using a naïve approach are equal to the final observed value. From the beginning of prediction, the confidence interval gets wider as time series goes.
+For our model2,we predict that there is a fluctuation in next 18 months. The point forecasts look reasonable in 18 months.
+
+
+
+Question 5:
+a) Use the VAR() function to fit a VAR(10) model to the 𝑙𝑜𝑔(𝐶𝑜𝑠𝑡) and 𝑙𝑜𝑔(𝐶𝑃𝐼) time series. Set
+the ‘type’ and ‘season’ arguments to 'both' and 12, respectively.
+
+```{r}
+model4<-VAR(cbind(log(cost),log(CPI)),type='both',season=12,p=10)
+summary(model4)
+```
+
+```{r}
+serial.test(model4,)
+```
+
+
+b) Forecast and plot the average price per room (i.e., Cost) and CPI for the next 18 months using
+your fitted model.
+
+```{r}
+forecast3 <- forecast(model4, h=18)
+plot(forecast3)
+```
+
+c) Plot the residuals’ ACF.
+Discuss your results.
+
+```{r}
+acf(residuals(model4))
+```
+
+The VAR(10)'s Adjusted R-squared is 0.9997. It means the model can explain 99.97% of the variance of the data. It is a good fit for this dataset. The p-value of Portmanteau Test = 0.668 which is greater than 0.05. We fail to reject null hypothesis.There is not enough evidence of presence of autocorrelation.
+
+From the ACF plot, the residuals are white noise.

@@ -1,0 +1,218 @@
+---
+title: "Assignment3"
+output:
+  pdf_document: default
+  word_document: default
+  html_document: default
+date: '2022-04-12'
+---
+
+```{r,echo=FALSE}
+library(fpp3)
+library(tseries)
+library(ggplot2)
+library(forecast)
+library(dplyr)
+library(TSA)
+library(MASS)
+
+```
+
+
+
+Question1
+Load the usgdp.rda dataset and split it into a training dataset (1960 - 2012) and a test dataset
+(2013 - 2017)
+
+```{r}
+load("~/Downloads/usgdp.rda")
+```
+
+
+```{r}
+#data cleaning
+=select(visitors,-c(Quarter,Origin))
+usgdp_new=select(usgdp,GDP)
+usgdpseries=ts(usgdp_new,frequency =1,start = c(1960,1))
+```
+
+
+```{r}
+#split train test data
+train_data <- window(usgdpseries, start = c(1960,1), end = c(2012,1),frequency=1)
+test_data<- window(usgdpseries, start = c(2013,1), end = c(2017,1),frequency=1)
+```
+
+
+Question 2:
+Plot the training dataset. Is the Box-Cox transformation necessary for this data?
+
+```{r}
+autoplot(train_data)
+```
+
+```{r}
+Acf(train_data)
+```
+
+
+```{r}
+lambda <- BoxCox.lambda(train_data)
+lambda
+```
+
+```{r}
+autoplot(BoxCox(train_data, lambda = 0.2310656))
+```
+
+
+
+Answer:  Box-Cox transformation  is necessary for this data. The line seems curved. Since there is increasing variation as the series increases,transformations can help to stabilize the variance. After transformation,the variance is stabilized. So Box-Cox transformation is necessary.
+
+
+Question 3: 
+Plot the 1st and 2nd order difference of the data. Apply KPSS Test for Stationarity to determine which difference order results in a stationary dataset.
+
+```{r}
+# 1st order difference of the data
+first_order_difference=diff(train_data)
+autoplot(first_order_difference)
+```
+
+
+```{r}
+head(first_order_difference)
+```
+
+
+```{r}
+#2nd order difference of the data
+second_order_difference=diff(diff(train_data))
+autoplot(second_order_difference)
+```
+
+```{r}
+head(second_order_difference)
+```
+
+
+```{r,warning=FALSE}
+#kpss on first diff order
+#kpss.test(first_order_difference)
+unitroot_kpss(first_order_difference)
+```
+The data is non-stationary since its pvalue is 0.01<0.05.We reject null hypothesis.
+
+```{r,message=FALSE, warning=FALSE}
+#kpss on second diff order
+#kpss.test(second_order_difference)
+unitroot_kpss(second_order_difference)
+```
+
+The data is stationary since its p-value is 0.1>0.05.We don't reject null hypothesis.
+
+Answer:The second difference order results in a stationary dataset.
+
+Question 4:Fit a suitable ARIMA model to the training dataset using the auto.arima() function. Remember to transform the data first if necessary. Report the resulting 𝑝, 𝑑, 𝑞 and the coefficients values.
+
+
+```{r}
+train.trans <- BoxCox(train_data, lambda = 0.2310656)
+fit <- auto.arima(train.trans)
+summary(fit)
+```
+
+Answer: 
+ARIMA(1,1,0) with drift is a suitable model. p=1,d=1,q=0. We have 1 order of the autoregressive part,1 degree of first differencing involved,0 order of the moving average part.
+For coefficients, ar1(autoregressive parameter of order 1) is 0.4728 and drift is 50.3366.
+standard error for ar1 is 0.1242, for drift is 4.3713.
+
+
+
+
+
+
+Question 5:
+Compute the sample Extended ACF (EACF) and use the Arima() function to try some other
+plausible models by experimenting with the orders chosen. Limit your models to 𝑞, 𝑝 ≤ 2
+and 𝑑 ≤ 2. Use the model summary() function to compare the Corrected Akaike information
+criterion (i.e., AICc) values (Note: Smaller values indicated better models).
+
+
+```{r}
+# sample Extended ACF (EACF) with 𝑞, 𝑝 ≤ 2
+eacf(train.trans,2,2)
+```
+
+```{r}
+#Use loop for finding the arima model withsmallest AIC 
+model_summary <- data.frame()
+for(p in 0:2){
+  for(q in 0:2){
+    for (d in 0:2) {
+      fit <- Arima(train.trans, order=c(p,d,q))
+      
+     # gather everything into a single data frame 
+      AIC <- data.frame(AIC = AIC(fit), 
+                            p,
+                            q,
+                            d)
+      
+      # add arima summary
+      model_summary  <- rbind(model_summary, AIC)
+   
+    }
+  }
+  
+}
+model_summary %>% arrange(AIC) %>% head(10)
+```
+THe Arima(0,2,2) will generate smallest AIC 441.7661.
+
+Question 6:
+Use the model chosen in Question 4 to forecast and plot the GDP forecasts with 80 and 95 %
+confidence levels for 2013 - 2017 (Test Period).
+
+```{r}
+fit.train <- auto.arima(train.trans)
+```
+
+```{r}
+#forecast and plot the GDP forecasts with 80 and 95 %
+predict <- forecast((fit.train), h = 5,level = c(80, 95))
+predict
+```
+
+```{r}
+autoplot(predict)
+```
+
+Question 7:
+Compare your forecasts with the actual values using error = actual - estimate and plot the
+errors. (Note: Use the forecast $mean element for the forecast estimate)
+```{r}
+estimate <- InvBoxCox((predict$mean), lambda = 0.2310656)
+estimate
+```
+
+```{r}
+test_data
+```
+
+```{r}
+error=test_data-estimate
+error
+```
+```{r}
+autoplot(error)
+```
+
+ Question 8:
+Calculate the sum of squared errors.
+
+```{r}
+SSE <- sum(error^2)
+SSE
+```
+
+The sum of squared errors is 7.973169e+23

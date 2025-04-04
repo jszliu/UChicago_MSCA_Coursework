@@ -1,0 +1,250 @@
+---
+title: "TS_HW6_Zihao_Liu"
+output:
+  word_document: default
+  html_document: default
+date: '2022-04-26'
+---
+
+```{r,include=FALSE}
+library(fpp)
+library(ggplot2)
+library(Metrics)
+```
+
+
+Question 1:
+Load and plot the visitors dataset and plot the dataset with and without the Box Cox transformation.
+Describe the main dataset characteristics.
+
+```{r}
+load("~/Downloads/visitors_monthly.rda")
+```
+
+
+```{r}
+# transfer data to time series and plot data
+visitors_ts<-ts(visitors$x,start=c(1985,5), frequency=12)
+autoplot(visitors_ts)
+```
+```{r}
+#plot the dataset without the Box Cox transformation
+tsdisplay(visitors_ts)
+```
+
+The time series data seems to have a upward trend and seasonailty.There seems to be a multiplicative time series. There is increasing variation as the series increases. So Box-Cox transformation is necessary to stablize the variance.All lags are out of the boudry,so the data is not white noise.ACF also shows seasonality.The peaks and valleys lined up with the seasonal count.There is autocorrelation.There is a sharp drop from lag1 and lag2 in PACF. Lag1 could be the cut-off point.
+
+```{r}
+#apply the Box-Cox transformation
+lambda <- BoxCox.lambda(visitors_ts)
+lambda
+
+```
+
+
+```{r}
+#plot the dataset with the Box Cox transformation
+boxcox_vistors <- BoxCox(visitors_ts, lambda)
+autoplot(boxcox_vistors)
+```
+```{r}
+tsdisplay(boxcox_vistors)
+```
+
+Compared with the original dataset, the variations along with seasons seem to be stabilized.
+
+
+Question 2:
+Build two models using the entire visitors dataset
+a. Model 1: Let the auto.arima() function determine the best order 𝐴𝑅𝐼𝑀𝐴(𝑝, 𝑑, 𝑞)(𝑃,𝑄,𝐷)𝑠
+model.
+b. Model 2: Let the ets() function determine the best model for exponential smoothing.
+
+```{r}
+model1<-auto.arima(visitors_ts,seasonal=TRUE,trace=TRUE,lambda = "auto")
+```
+
+```{r}
+summary(model1)
+```
+
+Model1: ARIMA(0,1,1)(2,1,1)[12]. Its AIC is 28.14, its AICc is 28.41 ,and Its BIC is 45.27. The model has nonseasonal p=0,d=1,q=1, and seasonal P=2,D=1,Q=1. p is order of the autoregressive part,d is degree of differencing involved, q is order of the moving average part. Its ma1 is -0.3111  with standard error 0.0684 , sar1 is 0.2852  with se 0.1501 ,sar2 is  -0.1860  with se  0.1123,sma1 is  -0.5353 with se 0.1558.
+
+
+```{r}
+model2 <- ets(visitors_ts,lambda = "auto")
+```
+
+
+```{r}
+summary(model2)
+```
+
+Model2 is ETS(A,A,A). It has additive error, additive trend,additive seasonality. It has AIC 665.9353,AICc 668.6921,BIC 725.1062.alpha=0.613,beta=1e-04,gamma=0.1629.
+Alpha specifies the coefficient for the level smoothing. Beta specifies the coefficient for the trend smoothing. Gamma specifies the coefficient for the seasonal smoothing.A higher value gives more weight.
+
+
+Question 3:
+In this section you will apply the time-series cross validation method to train and test various models.
+Use the following values when training and testing the models
+
+```{r}
+subset <- window(visitors_ts,start=c(1985,5),end=c(1998,8))
+plot(subset)
+```
+
+```{r}
+#Set the minimum number of samples required to train the model to 160 
+k <- 160 
+# Number of data points
+n <- 240
+# the period, 𝑝, is equal to 12 months
+p <- 12
+#Set the number the forecast horizon, ℎ, to 1 year (i.e., 12 months.)
+h <- 12
+```
+
+
+```{r}
+defaultW <- getOption("warn") 
+options(warn = -1)
+
+st <- tsp(visitors_ts)[1]+(k-2)/p #  gives the start time in time units,
+
+mae_1 <- matrix(NA,n-k,h)
+mae_2 <- matrix(NA,n-k,h)
+mae_3 <- matrix(NA,n-k,h)
+mae_4 <- matrix(NA,n-k,h)
+
+RMSE_1 <- matrix(NA,n-k,h)
+RMSE_2 <- matrix(NA,n-k,h)
+RMSE_3 <- matrix(NA,n-k,h)
+RMSE_4 <- matrix(NA,n-k,h)
+
+AICc_1 <- matrix(NA,n-k,1)
+AICc_2 <- matrix(NA,n-k,1)
+AICc_3 <- matrix(NA,n-k,1)
+AICc_4 <- matrix(NA,n-k,1)
+
+for(i in 1:(n-k))
+{
+  ### One Month rolling forecasting
+  # Expanding Window 
+  train_1 <- window(visitors_ts, end=st + i/p)  ## Window Length: k+i
+  
+  # Sliding Window - keep the training window of fixed length. 
+  # The training set always consists of k observations.
+  train_2 <- window(visitors_ts, start=st+(i-k+1)/p, end=st+i/p) ## Window Length: k
+  
+  test <- window(visitors_ts, start=st + (i+1)/p, end=st + (i+h)/p) ## Window Length: H
+
+  if (i<4) {
+  cat(c("*** CV", i,":","len(Expanding Window):",length(train_1), "len(Sliding Window):",length(train_2), "len(Test):",length(test),'\n'  ))
+  cat(c("*** TRAIN -  Expanding WIndow:",tsp(train_1)[1],'-',tsp(train_1)[2],'\n'))
+  cat(c("*** TRAIN - Sliding WIndow:",tsp(train_2)[1],'-',tsp(train_2)[2],'\n'))
+  cat(c("*** TEST:",tsp(test)[1],'-',tsp(test)[2],'\n'))
+  cat("*************************** \n \n")
+  }
+  
+#arima models  
+  # Expanding Window 
+  fit_1 <- Arima(train_1, order=c(1,0,1), seasonal=list(order=c(0,1,2), period=p),
+                include.drift=TRUE, lambda="auto", method="ML")
+  fcast_1 <- forecast(fit_1, h=h)
+  # Sliding Window
+  fit_2 <- Arima(train_2, order=c(1,0,1), seasonal=list(order=c(0,1,2), period=p),
+                include.drift=TRUE, lambda="auto", method="ML")
+  fcast_2 <- forecast(fit_2, h=h)
+  
+#ets models
+  # Expanding Window 
+  fit_3 <- ets(train_1, model = 'MAM')
+  fcast_3 <- forecast(fit_3, h=h)
+  # Sliding Window
+  fit_4 <- ets(train_2, model = 'MAM')
+  fcast_4 <- forecast(fit_4, h=h)
+  
+  
+  mae_1[i,1:length(test)] <- abs(fcast_1$mean-test)
+  mae_2[i,1:length(test)] <- abs(fcast_2$mean-test)
+  mae_3[i,1:length(test)] <- abs(fcast_3$mean-test)
+  mae_4[i,1:length(test)] <- abs(fcast_4$mean-test)
+  
+  RMSE_1[i,1:length(test)]<-rmse(fcast_1$mean, test)
+  RMSE_2[i,1:length(test)]<-rmse(fcast_2$mean, test)
+  RMSE_3[i,1:length(test)]<-rmse(fcast_3$mean, test)
+  RMSE_4[i,1:length(test)]<-rmse(fcast_4$mean, test)
+  
+  AICc_1[i]<-fit_1$aicc
+  AICc_2[i]<-fit_2$aicc
+  AICc_3[i]<-fit_3$aicc
+  AICc_4[i]<-fit_4$aicc
+}
+```
+
+```{r}
+
+```
+
+
+
+```{r}
+#(1)Mean Absolute Forecast Error (MAE) vs forecast horizon
+plot(1:12, colMeans(mae_1,na.rm=TRUE), type="l",col=1,xlab="horizon", ylab="MAE")
+lines(1:12, colMeans(mae_2,na.rm=TRUE), type="l",col=2)
+lines(1:12, colMeans(mae_3,na.rm=TRUE), type="l",col=3)
+lines(1:12, colMeans(mae_4,na.rm=TRUE), type="l",col=4)
+legend("topleft",legend=c("ARIMA - Expanding training Window",
+                          "ARIMA - Sliding training Window", 
+                          'ETS - Expanding training Window', 
+                          'ETS - Sliding training Window'),col=1:4,lty=1,bg="transparent")
+```
+
+```{r}
+#(2)Root-square Forecast Error (RMSE) vs forecast horizon
+plot(1:12, colMeans(RMSE_1,na.rm=TRUE), type="l",col=1,xlab="horizon", ylab="RMSE", ylim=c(28,33))
+lines(1:12, colMeans(RMSE_2,na.rm=TRUE), type="l",col=2)
+lines(1:12, colMeans(RMSE_3,na.rm=TRUE), type="l",col=3)
+lines(1:12, colMeans(RMSE_4,na.rm=TRUE), type="l",col=4)
+legend("topleft",legend=c("ARIMA - Expanding training Window",
+                          "ARIMA - Sliding training Window", 
+                          'ETS - Expanding training Window', 
+                          'ETS - Sliding training Window'),col=1:4,lty=1,bg="transparent")
+```
+
+```{r}
+#(3) AICc vs iteration number
+plot(1:80, AICc_1, type="l",col=1,xlab="Iteration", ylab="AICc", ylim=c(14,2500))
+lines(1:80, AICc_2, type="l",col=2)
+lines(1:80, AICc_3, type="l",col=3)
+lines(1:80, AICc_4, type="l",col=4)
+legend("topleft",legend=c("ARIMA - Expanding training Window",
+                          "ARIMA - Sliding training Window", 
+                          'ETS - Expanding training Window', 
+                          'ETS - Sliding training Window'),col=1:4,lty=1,bg="transparent")
+```
+Finding: 
+1. In Arima or ETS, Sliding window model performs better than the expanding window model.
+2.ETS-Expanding training Window has highest  MAE, RMSE and AICc among the four models,so it is the worst model. ARIMA - Sliding training Window has lowest MAE,RMSE,and AICc among the four models,so it is the best model.
+
+
+
+Question 4:
+What are the disadvantages of the above methods? What would be a better approach to estimate the
+models? Hint: How were the SARIMA and exponential time series models determined in question 3?
+
+```{r}
+#autoarima model without boxcox transformation
+summary(auto.arima(visitors_ts))
+```
+
+```{r}
+# ets model without boxcox transformation
+summary(ets(visitors_ts))
+```
+
+They are diiferent from ones in question3 with boxcox transformation. They are suitable models for data without boxcox transformation.
+
+Answer: 
+
+Question3 asks us to specifies model as ARIMA(1,0,1)(0,1,2)[12] with drift and ETS(M,A,M). However they are models for data without boxcox transformation. With boxcox transformation, they suggest ARIMA(0,1,1)(2,1,1)[12] and ETS(A,A,A) to be the suitable models. A better approach to estimate the models is to use the  data with boxcox transformation and the relevant models (models from question2).

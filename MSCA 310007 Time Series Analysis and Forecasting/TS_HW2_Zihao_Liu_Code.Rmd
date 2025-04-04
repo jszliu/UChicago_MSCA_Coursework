@@ -1,0 +1,103 @@
+---
+title: "MSCA31006_HW2_Zihao_Liu"
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+date: '2022-04-05'
+---
+
+```{r}
+library(fpp)
+library(fpp3)
+library(tseries)
+
+library(ggplot2)
+
+library(forecast)
+library(dplyr)
+```
+
+Question 1
+
+```{r}
+load("~/Downloads/visitors.rda")
+```
+
+```{r}
+visitors_new=select(visitors,-c(Quarter,Origin))
+visitorstimeseries=ts(visitors_new,frequency = 4,start = c(1981,1))
+```
+
+
+```{r}
+
+plot(visitorstimeseries)
+```
+
+```{r}
+Acf(visitorstimeseries)
+```
+
+Answer:1980 Q1 to 2012 Q3, there is a up rising trend with seasonal patterns. It seems that there is an increasing shock between 1985 and 1990,2000 and 2002. The data seems to be non-stationary.
+
+Question2
+
+```{r}
+fit_add <- decompose(visitorstimeseries, type="additive")
+
+plot(fit_add)
+```
+
+```{r}
+fit_mult <- decompose(visitorstimeseries, type="multiplicative")
+
+plot(fit_mult)
+```
+
+
+Answer: The appropriate Holt-Winters method for this data set is multiplicative as the time plot shows that the seasonal variation in the data increases as the level of the series increases.
+
+Question3
+
+```{r}
+#Linear trend with additive seasonality
+m_1=hw(visitorstimeseries,seasonal = "additive",h=16)
+#Linear trend with multiplicative seasonality
+m_2=hw(visitorstimeseries,seasonal = "multiplicative",h=16)
+#Linear trend with additive seasonality and damping
+m_3=hw(visitorstimeseries,seasonal = "additive",h=16,damped = TRUE)
+#Linear trend with multiplicative seasonality and damping
+m_4=hw(visitorstimeseries,seasonal="multiplicative",h=16,damped = TRUE)
+```
+
+```{r}
+#using Seasonal naïve method
+m_5=snaive(visitorstimeseries, h = 16)
+```
+
+Question4
+
+```{r}
+accuracy(m_1)
+accuracy(m_2)
+accuracy(m_3)
+accuracy(m_4)
+accuracy(m_5)
+```
+
+Answer:
+We find that the model Linear trend with multiplicative seasonality and damping has the lowest RMSE.Its RMSE is 7460.002 As a result, I prefer the forth model.
+
+Question5
+
+```{r}
+ checkresiduals(m_4)
+```
+```{r}
+summary(m_4)
+```
+
+Answer:  
+The residuals are centered around 0 but the residuals may not be normal as the histogram has a long right tail. The Acf shows most lags are within confidence intervals.In Ljung-Box test, The p-value is close to zero so we rejected the null hypothesis that the residuals are independently distributed. Residuals are not white noise.
+Smoothing parameters: alpha = 0.52 beta = 0.0027 gamma = 1e-04 phi = 0.98

@@ -1,0 +1,326 @@
+---
+title: "TS_HW5_Zihao_Liu"
+output:
+  word_document: default
+  html_document: default
+date: '2022-04-26'
+---
+```{r,include=FALSE}
+library(fpp)
+library(ggplot2)
+library(TSA)
+library(tseries)
+library(readxl)
+library(MLmetrics)
+```
+
+
+ Question 1:
+Load the condmilk.rda dataset and split it into a training dataset (1971/1 – 1979/12) and a test dataset
+(1980/1 – 1980/12)
+
+
+```{r}
+load("~/Downloads/condmilk.rda")
+```
+
+```{r}
+#transfer data to timeseries
+condmilk_ts <- ts(condmilk, start=c(1971,1), end = c(1980,12) ,frequency=12)
+```
+
+```{r}
+#split train and test
+train <- window(condmilk_ts, start = c(1971,1), end = c(1979,12))
+```
+
+```{r}
+test <- window(condmilk_ts, start = c(1980,1), end =c(1980,12))
+```
+
+Question 2:
+Plot the training dataset. Is Box-Cox transformation necessary for this data?
+
+
+```{r}
+autoplot(train)
+```
+
+
+```{r}
+lambda =BoxCox.lambda(train)
+lambda
+```
+
+```{r}
+autoplot(BoxCox(train, lambda =BoxCox.lambda(train)))
+```
+
+
+Box-Cox transformation is not necessary for this data. The timeseries is cyclical and  there is no increase or decrease variation as the series increases.If we do a box-cox transformation,we can see the transformed data has similiar shape with original data. So Box-Cox transformation is necessary.
+
+```{r}
+tsdisplay(BoxCox(train, lambda =BoxCox.lambda(train)))
+```
+
+
+Question 3:
+Is the training dataset stationary? If not, find an appropriate differencing which yields seasonal and
+trend stationary training dataset. Plot the ACF and PACF to determine if the detrended and
+deseasonalized time series is stationary. 
+
+```{r}
+tsdisplay(train)
+```
+
+From TS plot,it has cyclical patterns. The acf has sinusoidal wave. There seems to be seasonality from ACF.The ACF slowly decays, so future values of the series are correlated by past values. There also could be autocorrelation since in PACF,there is a sharp drop from lag 1 to lag 2. lag1 could be cut of point. 
+
+```{r,warning=FALSE}
+kpss.test(train)
+```
+
+
+```{r,warning=FALSE}
+adf.test(train)
+```
+
+
+The training dataset is stationary since p-value of kpss test is 0.1>0.05 and p-value of adf-test is 0.01<0.05. So the process is stationary. No differencing is needed.
+
+
+
+Question 4:
+Build two 𝐴𝑅𝐼𝑀𝐴(𝑝, 𝑑, 𝑞)(𝑃,𝑄, 𝐷)𝑠 models using the training dataset and auto.arima() function.
+• Model 1: Let the auto.arima() function determine the best order of non-seasonal and seasonal
+differencing.
+• Model 2: Set the order of seasonal-differencing 𝑑 to 1 and 𝐷 to 1.
+
+Report the resulting 𝑝, 𝑑, 𝑞, 𝑃,𝐷,𝑄, 𝑠 and the coefficients values for all cases and compare their AICc and
+BIC values.
+
+```{r}
+#Model1
+model1 <- auto.arima(train,seasonal=TRUE,trace=TRUE)
+```
+
+```{r}
+summary(model1)
+```
+
+Model1: ARIMA(1,0,0)(2,1,0)[12]. Its AIC is 765.67, its AICc is 766.11,and Its BIC is 775.93. The model has nonseasonal p=1,d=0,q=0, and seasonal P=2,D=1,Q=0. p is order of the autoregressive part,d is degree of differencing involved, q is order of the moving average part. Its ar1 is 0.7625 with standard error 0.0676, sar1 is -0.7745 with se 0.1007,sar2 is -0.5032 with se 0.0989.
+
+
+```{r}
+#Model2
+model2 <- auto.arima(train,d=1,D=1,seasonal = TRUE,trace = TRUE)
+```
+
+
+```{r}
+summary(model2)
+```
+
+Model2:ARIMA(0,1,1)(2,1,0)[12]. Its AIC is 766.98, its AICc is 767.42,and Its BIC is 777.19.p=0,d=1,q=1,P=2,d=1,q=0. Its ma1 is -0.1672  with standard error  0.1104, sar1 is -0.7597 with se 0.1004,sar2 is -0.4931 with se  0.0997
+
+
+```{r}
+df <- data.frame(name=c("ARIMA(1,0,0)(2,1,0)[12]","ARIMA(0,1,1)(2,1,0)[12]"),
+                AICc = c(766.11,775.93),
+                 BIC = c(767.42,777.19)
+                 )
+print (df)
+```
+
+Model 1 and Model 2 comparison: Model 1 and Model 2 both have 2 seasonal autoregressive part but model 1 has one non-seasonal autoregressive part and model2 has one non seasonal moving average part. 
+Model1's AICc and BIC are slighlty lower than Model2's. So model1 is better than model2
+
+
+
+Question 5:
+Plot the residuals ACF of both models from part 4 and use the Ljung-Box Test with lag 12 to verify your
+conclusion.
+
+
+
+```{r}
+checkresiduals(model1,lag = 12)
+```
+
+p-value =0.05963 >0.05. So we fail to reject the null hypothesis. Residuals are independently distributed.
+
+
+
+```{r}
+checkresiduals(model2,lag=12)
+```
+p-value = 0.09629 >0.05. So we fail to reject the null hypothesis. Residuals are independently distributed.
+
+Both models' residual ACf plot dont' show autocorrelation. From Ljung-Box test, we find that residuals are independent up to lag12. As a result we can say that both models capture the pattern in data.
+
+
+Question 6:
+Use both models from part 4 and the h-period argument in the forecast() function to forecast each
+month of 1980 (i.e., Jan, Feb, …, Dec.) Plot the test dataset and forecasted values.
+
+```{r}
+
+forecast1 <-forecast(model1,h=12)
+autoplot(forecast1)
+```
+
+
+```{r}
+
+forecast2 <-forecast(model2,h=12)
+autoplot(forecast2)
+```
+
+
+```{r}
+#Plot the test dataset
+autoplot(test)
+```
+
+```{r}
+#Plot model1 forecast
+autoplot(forecast1$mean)
+```
+
+```{r}
+#Plot model2 forecast
+autoplot(forecast2$mean)
+```
+
+```{r}
+plot(forecast1$mean)                          #draw first model
+lines(forecast2$mean,                            # Draw second model
+      type = "l",
+      col = 2)
+lines(test,                            # Draw test
+      type = "l",
+      col = 3)
+
+```
+
+From the graph, we can see that Model1 and Model2's predictions are very similiar, and they deviate from actual values. We need to use metrics to evaluate two models.
+
+
+
+
+
+Question 7:
+Compare the forecast with the actual test data by calculating the Mean Absolute Percentage Error
+(MAPE) and Mean Squared Error (MSE). Which model is better to forecast the Manufacturer's Stocks for
+each month of 1980 (i.e., Jan, Feb, …, Dec)?
+
+```{r}
+summary1 <- summary(model1)
+summary2 <- summary(model2)
+```
+
+
+```{r}
+#model 1
+accuracy(forecast1,test)
+```
+
+
+```{r}
+# MSE of model1 on test set
+mean((test - forecast1$mean)^2)
+```
+
+
+
+```{r}
+accuracy(forecast2, test)
+```
+
+
+```{r}
+#MSE of test set for model2
+mean((test - forecast2$mean)^2)
+```
+
+
+
+```{r}
+df_2 <- data.frame(name=c("ARIMA(1,0,0)(2,1,0)[12]","ARIMA(0,1,1)(2,1,0)[12]"),
+                MSE = c(309.5345,352.806),
+                 MAPE = c(18.42871,19.756729)
+                 )
+print (df_2)
+```
+
+ Model1 ARIMA(1,0,0)(2,1,0)[12] is better to forecast the Manufacturer's Stocks for each month of 1980 because it has smaller MSE and MAPE compared with model2.
+
+
+Question 8:
+Forecast each month of 1980 (i.e., Jan, Feb, …, Dec.) using the seasonal naïve forecast method. Plot the
+test dataset and forecasted values, and compare the forecast with the actual test data by calculating the
+Mean Absolute Percentage Error (MAPE) and Mean Squared Error (MSE). 
+
+```{r}
+model3 <- snaive(train,12)
+summary3 <- summary(model3)
+```
+
+```{r}
+forecast3=forecast(model3,h=12)
+autoplot(forecast3)
+```
+
+
+```{r}
+plot(forecast3$mean)                          #draw third model
+lines(test,                            # Draw test
+      type = "l",
+      col = 3)
+
+```
+
+```{r}
+accuracy(forecast3, test)
+```
+
+
+```{r}
+#MSE of test set for model3
+mean((test - forecast3$mean)^2)
+```
+
+
+```{r}
+df_3 <- data.frame(name=c("seasonal naïve"),
+                MSE = c(277.8286),
+                 MAPE = c(17.97548)
+                 )
+print (df_3)
+```
+
+
+```{r}
+plot(forecast1$mean)                          #draw first model
+lines(forecast2$mean,                            # Draw second model
+      type = "l",
+      col = 2)
+lines(test,                            # Draw test
+      type = "l",
+      col = 3)
+lines(forecast3$mean,
+      type="l",
+      col=4)         #draw third model
+legend("topleft",legend=c("ARIMA(1,0,0)(2,1,0)[12]",
+                          "ARIMA(0,1,1)(2,1,0)[12]", 
+                          'test', 
+                          'seasonal naïve'),col=1:4,lty=1,bg="transparent")
+
+```
+
+
+
+```{r}
+#MAPE is in percentage form from accuracy()
+rbind(df_2,df_3)
+```
+Compared two arima models, seasonal naive has lower MSE and MAPE, so it is best among three models from these two metrics.
