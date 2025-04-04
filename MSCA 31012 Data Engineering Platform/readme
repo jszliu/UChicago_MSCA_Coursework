@@ -1,1 +1,71 @@
+📂 Contents
+📊 Assignment 1 – Platform & Data Cleaning Overview
+
+Overview of commonly used data engineering tools: OpenRefine, MySQL, MongoDB, Tableau, GCP, etc.
+
+Hands-on data cleaning using OpenRefine: clustering, merging, and transforming values.
+
+Conceptual design and normalization of relational data (Sakila DB).
+
+Reverse engineering EER diagrams and defining lookup tables.
+
+Use of public APIs and JSON data processing.
+
+🧱 Assignment 2 – SQL Queries and Data Modeling
+
+Executed SQL queries over the Sakila database.
+
+Focused on rental, payment, and customer tables.
+
+Covered joins, aggregations, subqueries, and filtering.
+
+HTML export of interactive query results.
+
+🍃 Assignment 3 – NoSQL with MongoDB
+
+Connected to MongoDB using pymongo.
+
+Performed CRUD operations and custom queries on Sakila-like collections.
+
+Examples:
+
+Count customers in California
+
+List all NC-17 movies
+
+Filter and display actors and metadata in nested structures.
+
+🏗️ Assignment 3 – Snowflake Dimensional Modeling + BI
+
+Built a star schema data warehouse for Sakila.
+
+Created fact and dimension tables, including fact_rental.
+
+Generated DDL/DML scripts with key metrics like rental duration and dollar amount.
+
+Identified optimization and script improvements.
+
+Designed Tableau reports and dashboards:
+
+Customer behavior and rental activity
+
+Movie demand and store-level KPIs
+
+Actor popularity and payment breakdowns
+
+🧰 Tools & Technologies
+SQL / MySQL Workbench
+
+MongoDB / NoSQL
+
+Python & Pandas
+
+OpenRefine
+
+Tableau
+
+Google Cloud Platform (GCP)
+
+Snowflake Dimensional Modeling
+
 
