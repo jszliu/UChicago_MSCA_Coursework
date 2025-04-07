@@ -1,0 +1,174 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r}
+df<- read.csv("~/Downloads/Fitness Club Data .csv")
+```
+
+```{r}
+sum(is.na(df))
+```
+
+
+```{r}
+library(dplyr) 
+library(stringr) 
+library(caTools) 
+
+```
+
+
+
+
+Calculate basic stats descriptive statistics (mean, median, min, max, standard deviation) for each field 
+
+```{r}
+summary(df)
+```
+
+
+
+
+
+
+
+
+
+Visualize distributions of data elements using histograms for key variables and predict which variables you expect to be most correlated with default/churn. 
+
+```{r}
+hist(df$price)
+```
+
+
+```{r}
+hist(df$downpmt)
+```
+
+
+```{r}
+plot(as.factor(df$use))
+```
+
+
+```{r}
+plot(as.factor(df$gender))
+```
+
+
+```{r}
+plot(as.factor(df$age))
+```
+```{r}
+hist(df$default)
+```
+
+```{r}
+plot(as.factor(df$pmttype))
+```
+
+
+```{r}
+hist(df$monthdue)
+```
+
+```{r}
+hist(df$price)
+```
+
+
+Build a Logistic Regression Model to Predict Churn/Retention, you may choose to identify groups within the data to narrow your focus on. (The "default" variable = churn, you may choose to only use age and payment type to build a model to predict "default" = churn) 
+
+```{r}
+#test train split
+set.seed(42) 
+sampleSplit <- sample.split(Y=df$default, SplitRatio=0.8) 
+trainSet <- subset(x=df, sampleSplit==TRUE) 
+testSet <- subset(x=df, sampleSplit==FALSE)
+```
+
+```{r}
+model <- glm(as.factor(default) ~pmttype+use+downpmt+as.factor(gender)+price+monthdue, family=binomial(link='logit'), data=trainSet)
+```
+
+Display the output visually using charts of your choosing and explain your choice. (ROC Curve, Confusion Matrix, Gains Table) 
+```{r}
+summary(model)
+```
+
+
+```{r}
+probabs <- predict(model, testSet, type='response') 
+preds <- ifelse(probabs > 0.5, 1, 0)
+```
+
+```{r}
+library(caret)
+```
+
+
+
+```{r}
+confusionMatrix(as.factor(preds), as.factor(testSet$default))
+```
+
+```{r}
+library(pROC)
+roc <- roc(testSet$default,probabs) #creates an object with all sorts of diagnostics including sensitivities and specificities
+
+testSet$sens <- roc$sensitivities[2:4970] #include sensitivities in test data
+testSet$spec <- roc$specificities[2:4970]
+
+ggplot(testSet, aes(x=spec, y=sens)) + geom_line()
+```
+
+
+```{r}
+library(ROCit)
+## Warning: package 'ROCit' was built under R version 3.5.2
+ROCit_obj <- rocit(score=preds,class=testSet$default)
+plot(ROCit_obj)
+```
+
+
+
+
+
+```{r}
+library(PRROC)
+
+PRROC_obj <- roc.curve(scores.class0 = preds, weights.class0=testSet$default,
+                       curve=TRUE)
+plot(PRROC_obj)
+```
+
+
+
+```{r}
+preds_new <- ifelse(probabs > 0.3, 1, 0)
+```
+
+
+
+```{r}
+library(PRROC)
+
+PRROC_obj <- roc.curve(scores.class0 = preds_new, weights.class0=testSet$default,
+                       curve=TRUE)
+plot(PRROC_obj)
+```
+
+
+
+```{r}
+confusionMatrix(as.factor(preds_new), as.factor(testSet$default))
+```
+
+```{r}
+varImp(model, scale = FALSE)
+```
+
